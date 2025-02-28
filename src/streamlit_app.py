@@ -395,7 +395,7 @@ if st.session_state.should_rerun:
                             st.success("Thank you for your detailed feedback!")
 
         except NodeInterrupt as e:
-            display_interrupt_details(e)
+            st.error(f"An error occurred while re-running: {str(e)}")
 
         except Exception as e:
             st.error(f"An error occurred while re-running: {str(e)}")
@@ -490,19 +490,7 @@ if prompt := st.chat_input("Ask me to analyze any webpage!"):
                             st.success("Thank you for your detailed feedback!")
 
         except NodeInterrupt as e:
-            display_interrupt_details(e)
+            st.error(f"An error occurred while re-running: {str(e)}")
 
         except Exception as e:
             st.error(f"An error occurred sending the request to the agent: {str(e)}")
-
-
-def display_interrupt_details(e: NodeInterrupt) -> None:
-    """Display interrupt details using st.write."""
-    interrupt_details = {
-        "Type": type(e).__name__,
-        "Message": str(e),
-        "Context": e.context if hasattr(e, "context") else "N/A",
-        "Timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
-        "Actions": e.actions if hasattr(e, "actions") else "N/A",
-    }
-    st.write("Interrupt details:", interrupt_details)
