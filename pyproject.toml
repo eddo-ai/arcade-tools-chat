@@ -1,0 +1,17 @@
+[project]
+name = "arcade-tools-chat"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "streamlit>=1.42.2",
+    "dotenv>=0.9.9",
+    "langchain-arcade>=1.1.0",
+    "langchain-openai>=0.3.7",
+    "langgraph>=0.2.76",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

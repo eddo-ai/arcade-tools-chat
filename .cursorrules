@@ -1,0 +1,1 @@
+- use uv to manage packages. don't use requirements.txt

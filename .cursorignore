@@ -1,0 +1,4 @@
+.env*
+! .env.example
+requirements.txt
+pyproject.toml
