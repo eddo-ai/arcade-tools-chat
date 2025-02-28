@@ -1,18 +1,14 @@
 import time
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
-from uuid import uuid4
+from typing import Any, Dict, Optional
 
 import streamlit as st
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
-from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain_arcade import ArcadeToolManager
 from langgraph.errors import NodeInterrupt
-from langchain.callbacks.manager import CallbackManager, tracing_v2_enabled
 from langsmith import Client
 
 
@@ -25,8 +21,76 @@ st.set_page_config(
 )
 
 # Check authentication
-if not hasattr(st.experimental_user, "email"):
+if st.experimental_user.get("email") is None:
     st.login()
+
+# Add sidebar profile section
+with st.sidebar:
+    if st.experimental_user.get("email"):
+        st.title("Profile")
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            # Display profile image if available, otherwise show a placeholder
+            profile_url = st.experimental_user.get("picture")
+            if profile_url:
+                st.image(str(profile_url), width=100)
+            else:
+                st.markdown("👤")
+
+        with col2:
+            # Display name if available, otherwise show email
+            if hasattr(st.experimental_user, "name") and st.experimental_user.name:
+                st.markdown(f"**{st.experimental_user.name}**")
+            st.markdown(f"_{st.experimental_user.email}_")
+
+        # User details expander
+        with st.expander("User Details"):
+            st.write(st.experimental_user)
+
+        st.divider()
+        if st.button("Logout", use_container_width=True, icon=":material/logout:"):
+            st.logout()
+    else:
+        st.write("Please log in to continue")
+        st.login()
+
+
+manager = ArcadeToolManager()
+
+
+def authorize_tool(tool_name: str):
+    """Authorize a tool."""
+
+    # If it does not require authorization, return true
+    if manager.requires_auth(tool_name) is False:
+        return True
+
+    # If the user is not logged in, login
+    if not st.experimental_user.get("email"):
+        st.login()
+
+    # Request authorization
+    try:
+        auth_response = manager.authorize(
+            tool_name=tool_name, user_id=str(st.experimental_user.get("email"))
+        )
+
+        # If the authorization is completed, return true
+        if auth_response.status == "completed":
+            return True
+
+        # If there is a url, give the user a button to authorize the tool
+        if auth_response.url and auth_response.id:
+            if st.link_button("Authorize", auth_response.url):
+                wait_response = manager.wait_for_auth(auth_response.id)
+                if wait_response.status == "completed":
+                    return True
+    except Exception as e:
+        st.error(f"Failed to authorize tool: {str(e)}")
+        return False
+
+    return False
+
 
 class TokenStreamHandler(BaseCallbackHandler):
     """Handler for streaming tokens to a Streamlit container."""
@@ -142,9 +206,6 @@ def update_thread_messages():
 
 def init_agent(callbacks=None) -> Any:
     """Initialize the agent with tools and model"""
-
-    # Initialize Arcade tool manager
-    manager = ArcadeToolManager()
 
     # Get Google toolkit, GitHub toolkit, and Web toolkit
     tools = manager.get_tools(toolkits=["Google", "GitHub", "Web"])
@@ -282,15 +343,6 @@ if st.session_state.should_rerun:
                 }
             }
 
-            # Execute the agent with tracing enabled
-            with tracing_v2_enabled(
-                project_name=os.getenv("LANGSMITH_PROJECT", "default")
-            ):
-                for step in agent.stream(
-                    user_input, config=config, stream_mode="values"
-                ):
-                    continue  # Just let it run without displaying intermediate steps
-
             # Get the final response from the token stream handler
             final_content = token_callback.text
             if final_content and final_content.strip():
@@ -343,10 +395,7 @@ if st.session_state.should_rerun:
                             st.success("Thank you for your detailed feedback!")
 
         except NodeInterrupt as e:
-            st.error(
-                "Tool authorization required. Please check your Arcade dashboard to authorize the tool."
-            )
-            st.error(f"Details: {str(e)}")
+            st.error(f"An error occurred while re-running: {str(e)}")
 
         except Exception as e:
             st.error(f"An error occurred while re-running: {str(e)}")
@@ -389,15 +438,6 @@ if prompt := st.chat_input("Ask me to analyze any webpage!"):
                 }
             }
 
-            # Execute the agent with tracing enabled
-            with tracing_v2_enabled(
-                project_name=os.getenv("LANGSMITH_PROJECT", "default")
-            ):
-                for step in agent.stream(
-                    user_input, config=config, stream_mode="values"
-                ):
-                    continue  # Just let it run without displaying intermediate steps
-
             # Get the final response from the token stream handler
             final_content = token_callback.text
             if final_content and final_content.strip():
@@ -450,10 +490,7 @@ if prompt := st.chat_input("Ask me to analyze any webpage!"):
                             st.success("Thank you for your detailed feedback!")
 
         except NodeInterrupt as e:
-            st.error(
-                "Tool authorization required. Please check your Arcade dashboard to authorize the tool."
-            )
-            st.error(f"Details: {str(e)}")
+            st.error(f"An error occurred while re-running: {str(e)}")
 
         except Exception as e:
             st.error(f"An error occurred sending the request to the agent: {str(e)}")
