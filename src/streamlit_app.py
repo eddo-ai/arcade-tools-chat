@@ -31,32 +31,29 @@ st.set_page_config(
 if not hasattr(st.experimental_user, "email"):
     st.login()
 
-# Set up environment variables from Streamlit secrets
-os.environ["LANGCHAIN_API_KEY"] = st.secrets.get("LANGSMITH_API_KEY", "")
-os.environ["LANGCHAIN_TRACING_V2"] = st.secrets.get("LANGCHAIN_TRACING_V2", "true")
-os.environ["LANGCHAIN_PROJECT"] = st.secrets.get("LANGSMITH_PROJECT", "default")
-os.environ["LANGCHAIN_ENDPOINT"] = st.secrets.get(
-    "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"
+langsmith_api_key = st.secrets.get("LANGSMITH_API_KEY", os.getenv("LANGSMITH_API_KEY", None))
+if langsmith_api_key is None:
+    st.warning("Please set LANGSMITH_API_KEY in your environment!")
+
+openai_api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", None))
+if openai_api_key is None:
+    st.warning("Please set OPENAI_API_KEY in your environment!")
+
+arcade_api_key = st.secrets.get("ARCADE_API_KEY", os.getenv("ARCADE_API_KEY", None))
+if arcade_api_key is None:
+    st.warning("Please set ARCADE_API_KEY in your environment!")
+
+openai_model = st.secrets.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o"))
+if openai_model is None:
+    st.warning("Please set OPENAI_MODEL in your environment!")
+
+langsmith_client = Client(
+    api_key=langsmith_api_key,
+    api_url=st.secrets.get(
+        "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"
+    ),
 )
 
-# Initialize LangSmith client
-try:
-    if not st.secrets.get("LANGSMITH_API_KEY"):
-        st.warning(
-            "LangSmith tracking disabled - set LANGSMITH_API_KEY in your Streamlit secrets."
-        )
-        langsmith_client = None
-    else:
-        langsmith_client = Client(
-            api_key=st.secrets.get("LANGSMITH_API_KEY"),
-            api_url=st.secrets.get(
-                "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"
-            ),
-        )
-        st.success("LangSmith initialized successfully!")
-except Exception as e:
-    st.warning(f"LangSmith initialization failed: {str(e)}")
-    langsmith_client = None
 
 
 class TokenStreamHandler(BaseCallbackHandler):
