@@ -21,8 +21,9 @@ st.set_page_config(
 )
 
 # Check authentication
-if st.experimental_user.get("email") is None:
-    st.login()
+if not st.experimental_user.is_logged_in:
+    st.button("Log in with Google", on_click=st.login)
+    st.stop()
 
 # Add sidebar profile section
 with st.sidebar:
@@ -48,11 +49,11 @@ with st.sidebar:
             st.write(st.experimental_user)
 
         st.divider()
-        if st.button("Logout", use_container_width=True, icon=":material/logout:"):
-            st.logout()
+        if st.button("Log out", on_click=st.logout, use_container_width=True, icon=":material/logout:"):
+            st.stop()
     else:
         st.write("Please log in to continue")
-        st.login()
+        st.button("Log in with Google", on_click=st.login)
 
 
 manager = ArcadeToolManager()
