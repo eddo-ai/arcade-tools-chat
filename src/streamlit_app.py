@@ -24,7 +24,7 @@ if not hasattr(st.experimental_user, "email"):
 
 # Initialize LangSmith client
 langsmith_client = Client(
-    api_key=st.secrets.get("LANGCHAIN_API_KEY", os.getenv("LANGCHAIN_API_KEY", None))
+    api_key=st.secrets.get("LANGSMITH_API_KEY", os.getenv("LANGSMITH_API_KEY", None))
 )
 
 
