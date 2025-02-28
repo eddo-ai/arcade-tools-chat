@@ -35,10 +35,10 @@ langsmith_api_key = st.secrets.get(
     "LANGSMITH_API_KEY", os.getenv("LANGSMITH_API_KEY", None)
 )
 if langsmith_api_key:
-    os.environ["LANGCHAIN_API_KEY"] = langsmith_api_key
-    os.environ["LANGCHAIN_TRACING_V2"] = "true"
-    os.environ["LANGCHAIN_PROJECT"] = st.secrets.get("LANGSMITH_PROJECT", "default")
-    os.environ["LANGCHAIN_ENDPOINT"] = st.secrets.get(
+    os.environ["LANGSMITH_API_KEY"] = langsmith_api_key
+    os.environ["LANGSMITH_TRACING_V2"] = "true"
+    os.environ["LANGSMITH_PROJECT"] = st.secrets.get("LANGSMITH_PROJECT", "default")
+    os.environ["LANGSMITH_ENDPOINT"] = st.secrets.get(
         "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"
     )
 else:
