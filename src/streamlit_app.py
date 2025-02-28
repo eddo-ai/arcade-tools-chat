@@ -1,6 +1,7 @@
 import time
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
+from uuid import uuid4
 
 import streamlit as st
 from langchain_openai import ChatOpenAI
@@ -12,7 +13,7 @@ from langchain.callbacks.base import BaseCallbackHandler
 from dotenv import load_dotenv
 from langchain_arcade import ArcadeToolManager
 from langgraph.errors import NodeInterrupt
-from langchain.callbacks.manager import CallbackManager
+from langchain.callbacks.manager import CallbackManager, tracing_v2_enabled
 from langsmith import Client
 
 # Load environment variables (for local development)
@@ -35,16 +36,22 @@ langsmith_api_key = st.secrets.get(
     "LANGSMITH_API_KEY", os.getenv("LANGSMITH_API_KEY", None)
 )
 if langsmith_api_key:
-    # Set all required environment variables for LangSmith
-    os.environ["LANGCHAIN_API_KEY"] = langsmith_api_key
+    # Set all required environment variables for LangSmith tracing
     os.environ["LANGSMITH_API_KEY"] = langsmith_api_key
-    os.environ["LANGCHAIN_TRACING_V2"] = "true"
-    os.environ["LANGSMITH_PROJECT"] = st.secrets.get("LANGSMITH_PROJECT", "default")
-    os.environ["LANGSMITH_ENDPOINT"] = st.secrets.get(
-        "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"
+    os.environ["LANGSMITH_TRACING_V2"] = "true"
+    os.environ["LANGSMITH_PROJECT"] = st.secrets.get(
+        "LANGSMITH_PROJECT", f"Arcade Tools Chat - {uuid4().hex[:8]}"
     )
+    # Initialize client only for feedback
+    try:
+        feedback_client = Client()  # Will use LANGSMITH_* env vars automatically
+        st.success("LangSmith feedback enabled!")
+    except Exception as e:
+        st.warning(f"LangSmith feedback initialization failed: {str(e)}")
+        feedback_client = None
 else:
     st.warning("LangSmith tracking disabled - set LANGSMITH_API_KEY to enable.")
+    feedback_client = None
 
 openai_api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", None))
 os.environ["OPENAI_API_KEY"] = openai_api_key or ""
@@ -57,33 +64,6 @@ if not arcade_api_key:
     st.warning("Please set ARCADE_API_KEY in your environment!")
 
 openai_model = st.secrets.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4"))
-
-# Initialize LangSmith client
-try:
-    if langsmith_api_key:
-        langsmith_client = Client(
-            api_key=langsmith_api_key,
-            api_url=st.secrets.get(
-                "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"
-            ),
-        )
-        # Add debug info
-        st.success("LangSmith initialized successfully!")
-        st.write(
-            "Debug info:",
-            {
-                "LANGCHAIN_API_KEY": "***" if os.getenv("LANGCHAIN_API_KEY") else None,
-                "LANGSMITH_API_KEY": "***" if os.getenv("LANGSMITH_API_KEY") else None,
-                "LANGCHAIN_TRACING_V2": os.getenv("LANGCHAIN_TRACING_V2"),
-                "LANGSMITH_PROJECT": os.getenv("LANGSMITH_PROJECT"),
-                "LANGSMITH_ENDPOINT": os.getenv("LANGSMITH_ENDPOINT"),
-            },
-        )
-    else:
-        langsmith_client = None
-except Exception as e:
-    st.warning(f"LangSmith initialization failed: {str(e)}")
-    langsmith_client = None
 
 
 class TokenStreamHandler(BaseCallbackHandler):
@@ -125,16 +105,16 @@ def handle_message_edit(idx: int, new_content: Optional[str]) -> None:
 
 def submit_feedback(run_id: Optional[str], score: int, comment: str = "") -> None:
     """Submit feedback to LangSmith."""
-    if run_id is not None and langsmith_client is not None:
+    if run_id is not None and feedback_client is not None:
         try:
-            langsmith_client.create_feedback(
+            feedback_client.create_feedback(
                 run_id, "user_score", score=score, comment=comment
             )
             st.success("Thank you for your feedback!")
         except Exception as e:
             st.error(f"Failed to submit feedback: {str(e)}")
     else:
-        if langsmith_client is None:
+        if feedback_client is None:
             st.warning("Feedback submission is disabled - LangSmith is not configured.")
         else:
             st.warning("Cannot submit feedback - no run ID available.")
@@ -213,7 +193,11 @@ def init_agent(callbacks=None) -> Any:
     memory = MemorySaver()
 
     # Create the graph with model and tools
-    agent = create_react_agent(model=model, tools=tools, checkpointer=memory)
+    agent = create_react_agent(
+        model=model,
+        tools=tools,
+        checkpointer=memory,
+    )
 
     return agent, memory
 
@@ -331,9 +315,14 @@ if st.session_state.should_rerun:
                 }
             }
 
-            # Execute the agent
-            for step in agent.stream(user_input, config=config, stream_mode="values"):
-                continue  # Just let it run without displaying intermediate steps
+            # Execute the agent with tracing enabled
+            with tracing_v2_enabled(
+                project_name=os.getenv("LANGSMITH_PROJECT", "default")
+            ):
+                for step in agent.stream(
+                    user_input, config=config, stream_mode="values"
+                ):
+                    continue  # Just let it run without displaying intermediate steps
 
             # Get the final response from the token stream handler
             final_content = token_callback.text
@@ -417,13 +406,10 @@ if prompt := st.chat_input("Ask me to analyze any webpage!"):
             agent_tuple = init_agent(callbacks=[token_callback])
             agent = agent_tuple[0]  # Unpack the agent from the tuple
 
-            # Prepare input and config according to LangGraph specs
-            # Convert chat history to message tuples
+            # Prepare input according to LangGraph specs
             message_history = [
                 (msg["role"], msg["content"]) for msg in st.session_state.messages
             ]
-            # Add current prompt
-            message_history.append(("user", prompt))
 
             user_input = {"messages": message_history}
 
@@ -436,9 +422,14 @@ if prompt := st.chat_input("Ask me to analyze any webpage!"):
                 }
             }
 
-            # Execute the agent
-            for step in agent.stream(user_input, config=config, stream_mode="values"):
-                continue  # Just let it run without displaying intermediate steps
+            # Execute the agent with tracing enabled
+            with tracing_v2_enabled(
+                project_name=os.getenv("LANGSMITH_PROJECT", "default")
+            ):
+                for step in agent.stream(
+                    user_input, config=config, stream_mode="values"
+                ):
+                    continue  # Just let it run without displaying intermediate steps
 
             # Get the final response from the token stream handler
             final_content = token_callback.text
