@@ -15,17 +15,39 @@ from langgraph.errors import NodeInterrupt
 from langchain.callbacks.manager import CallbackManager
 from langsmith import Client
 
-# Load environment variables
+# Load environment variables (for local development)
 load_dotenv()
 
 # Check authentication
 if not hasattr(st.experimental_user, "email"):
     st.login()
 
-# Initialize LangSmith client
-langsmith_client = Client(
-    api_key=st.secrets.get("LANGSMITH_API_KEY", os.getenv("LANGSMITH_API_KEY", None))
+# Set up environment variables from Streamlit secrets
+os.environ["LANGCHAIN_API_KEY"] = st.secrets.get("LANGSMITH_API_KEY", "")
+os.environ["LANGCHAIN_TRACING_V2"] = st.secrets.get("LANGCHAIN_TRACING_V2", "true")
+os.environ["LANGCHAIN_PROJECT"] = st.secrets.get("LANGSMITH_PROJECT", "default")
+os.environ["LANGCHAIN_ENDPOINT"] = st.secrets.get(
+    "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"
 )
+
+# Initialize LangSmith client
+try:
+    if not st.secrets.get("LANGSMITH_API_KEY"):
+        st.warning(
+            "LangSmith tracking disabled - set LANGSMITH_API_KEY in your Streamlit secrets."
+        )
+        langsmith_client = None
+    else:
+        langsmith_client = Client(
+            api_key=st.secrets.get("LANGSMITH_API_KEY"),
+            api_url=st.secrets.get(
+                "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"
+            ),
+        )
+        st.success("LangSmith initialized successfully!")
+except Exception as e:
+    st.warning(f"LangSmith initialization failed: {str(e)}")
+    langsmith_client = None
 
 
 class TokenStreamHandler(BaseCallbackHandler):
@@ -67,7 +89,7 @@ def handle_message_edit(idx: int, new_content: Optional[str]) -> None:
 
 def submit_feedback(run_id: Optional[str], score: int, comment: str = "") -> None:
     """Submit feedback to LangSmith."""
-    if run_id is not None:
+    if run_id is not None and langsmith_client is not None:
         try:
             langsmith_client.create_feedback(
                 run_id, "user_score", score=score, comment=comment
@@ -75,6 +97,11 @@ def submit_feedback(run_id: Optional[str], score: int, comment: str = "") -> Non
             st.success("Thank you for your feedback!")
         except Exception as e:
             st.error(f"Failed to submit feedback: {str(e)}")
+    else:
+        if langsmith_client is None:
+            st.warning("Feedback submission is disabled - LangSmith is not configured.")
+        else:
+            st.warning("Cannot submit feedback - no run ID available.")
 
 
 # Initialize session state
