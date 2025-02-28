@@ -130,8 +130,8 @@ def update_thread_messages():
 
 def init_agent(callbacks=None) -> Any:
     """Initialize the agent with tools and model"""
-    arcade_api_key = os.getenv("ARCADE_API_KEY", None)
-    openai_api_key = os.getenv("OPENAI_API_KEY", None)
+    arcade_api_key = st.secrets.get("ARCADE_API_KEY", os.getenv("ARCADE_API_KEY", None))
+    openai_api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", None))
 
     if arcade_api_key is None or openai_api_key is None:
         st.error("Please set ARCADE_API_KEY and OPENAI_API_KEY in your environment!")
@@ -145,7 +145,7 @@ def init_agent(callbacks=None) -> Any:
 
     # Set up the language model with callbacks for final response only
     model = ChatOpenAI(
-        model=os.getenv("OPENAI_MODEL", "gpt-4"),
+        model=st.secrets.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o")),
         streaming=True,
         callbacks=callbacks,  # Pass callbacks directly to allow token streaming
     )
