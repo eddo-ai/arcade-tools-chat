@@ -1,4 +1,5 @@
 import time
+import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import streamlit as st
@@ -31,17 +32,21 @@ st.set_page_config(
 if not hasattr(st.experimental_user, "email"):
     st.login()
 
-langsmith_api_key = st.secrets.get("LANGSMITH_API_KEY", os.getenv("LANGSMITH_API_KEY", None))
+langsmith_api_key = st.secrets.get(
+    "LANGSMITH_API_KEY", os.getenv("LANGSMITH_API_KEY", None)
+)
 if langsmith_api_key is None:
     st.warning("Please set LANGSMITH_API_KEY in your environment!")
 
 openai_api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", None))
+os.environ["OPENAI_API_KEY"] = openai_api_key or ""
 if openai_api_key is None:
     st.warning("Please set OPENAI_API_KEY in your environment!")
 
 arcade_api_key = st.secrets.get("ARCADE_API_KEY", os.getenv("ARCADE_API_KEY", None))
 if arcade_api_key is None:
     st.warning("Please set ARCADE_API_KEY in your environment!")
+os.environ["ARCADE_API_KEY"] = arcade_api_key or ""
 
 openai_model = st.secrets.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o"))
 if openai_model is None:
@@ -49,11 +54,8 @@ if openai_model is None:
 
 langsmith_client = Client(
     api_key=langsmith_api_key,
-    api_url=st.secrets.get(
-        "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"
-    ),
+    api_url=st.secrets.get("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
 )
-
 
 
 class TokenStreamHandler(BaseCallbackHandler):
@@ -174,7 +176,7 @@ def init_agent(callbacks=None) -> Any:
 
     # Set up the language model with callbacks for final response only
     model = ChatOpenAI(
-        model=openai_model,
+        model=st.secrets.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o")),
         streaming=True,
         callbacks=callbacks,  # Pass callbacks directly to allow token streaming
     )
@@ -186,7 +188,6 @@ def init_agent(callbacks=None) -> Any:
     agent = create_react_agent(model=model, tools=tools, checkpointer=memory)
 
     return agent, memory
-
 
 
 # Display chat header
@@ -469,4 +470,4 @@ if prompt := st.chat_input("Ask me to analyze any webpage!"):
             st.error(f"Details: {str(e)}")
 
         except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
+            st.error(f"An error occurred sending the request to the agent: {str(e)}")
