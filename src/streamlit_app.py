@@ -13,7 +13,6 @@ from langchain_arcade import ArcadeToolManager
 from langgraph.errors import NodeInterrupt
 from langchain.callbacks.manager import CallbackManager
 from langsmith import Client
-import time
 
 # Load environment variables
 load_dotenv()
@@ -23,7 +22,7 @@ if not hasattr(st.experimental_user, "email"):
     st.login()
 
 # Initialize LangSmith client
-langsmith_client = Client()
+langsmith_client = Client(api_key=st.secrets.get("LANGCHAIN_API_KEY", os.getenv("LANGCHAIN_API_KEY", None)))
 
 
 class TokenStreamHandler(BaseCallbackHandler):
