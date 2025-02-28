@@ -2,3 +2,4 @@
 ! .env.example
 requirements.txt
 pyproject.toml
+.streamlit/secrets.toml
