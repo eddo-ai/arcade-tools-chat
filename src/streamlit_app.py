@@ -346,7 +346,16 @@ if st.session_state.should_rerun:
             st.error(
                 "Tool authorization required. Please check your Arcade dashboard to authorize the tool."
             )
-            st.error(f"Details: {str(e)}")
+            st.write(f"Interrupt details: {str(e)}")
+            if st.button("Authorize"):
+                # Add logic to handle "Authorize" button click
+                st.write("Redirecting to authorization page...")
+                # Add your authorization logic here
+
+            if st.button("Resume"):
+                # Add logic to handle "Resume" button click
+                st.write("Resuming the interrupted process...")
+                # Add your resume logic here
 
         except Exception as e:
             st.error(f"An error occurred while re-running: {str(e)}")
@@ -453,7 +462,16 @@ if prompt := st.chat_input("Ask me to analyze any webpage!"):
             st.error(
                 "Tool authorization required. Please check your Arcade dashboard to authorize the tool."
             )
-            st.error(f"Details: {str(e)}")
+            st.write(f"Interrupt details: {str(e)}")
+            if st.button("Authorize"):
+                # Add logic to handle "Authorize" button click
+                st.write("Redirecting to authorization page...")
+                # Add your authorization logic here
+
+            if st.button("Resume"):
+                # Add logic to handle "Resume" button click
+                st.write("Resuming the interrupted process...")
+                # Add your resume logic here
 
         except Exception as e:
             st.error(f"An error occurred sending the request to the agent: {str(e)}")
