@@ -18,6 +18,15 @@ from langsmith import Client
 # Load environment variables (for local development)
 load_dotenv()
 
+
+# Set up Streamlit page configuration
+st.set_page_config(
+    page_title="Arcade Tools Chat",
+    page_icon="🛠️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 # Check authentication
 if not hasattr(st.experimental_user, "email"):
     st.login()
@@ -188,13 +197,6 @@ def init_agent(callbacks=None) -> Any:
     return agent, memory
 
 
-# Set up Streamlit page configuration
-st.set_page_config(
-    page_title="Arcade Tools Chat",
-    page_icon="🛠️",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 # Display chat header
 st.title("🛠️ Arcade Tools Chat")
