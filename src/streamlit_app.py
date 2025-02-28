@@ -9,7 +9,6 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
 from langchain.callbacks.base import BaseCallbackHandler
-import os
 from dotenv import load_dotenv
 from langchain_arcade import ArcadeToolManager
 from langgraph.errors import NodeInterrupt
@@ -18,7 +17,6 @@ from langsmith import Client
 
 # Load environment variables (for local development)
 load_dotenv()
-
 
 # Set up Streamlit page configuration
 st.set_page_config(
@@ -32,31 +30,47 @@ st.set_page_config(
 if not hasattr(st.experimental_user, "email"):
     st.login()
 
+# Set up environment variables from Streamlit secrets
 langsmith_api_key = st.secrets.get(
     "LANGSMITH_API_KEY", os.getenv("LANGSMITH_API_KEY", None)
 )
-if langsmith_api_key is None:
-    st.warning("Please set LANGSMITH_API_KEY in your environment!")
-os.environ["LANGSMITH_API_KEY"] = langsmith_api_key or ""
+if langsmith_api_key:
+    os.environ["LANGCHAIN_API_KEY"] = langsmith_api_key
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    os.environ["LANGCHAIN_PROJECT"] = st.secrets.get("LANGSMITH_PROJECT", "default")
+    os.environ["LANGCHAIN_ENDPOINT"] = st.secrets.get(
+        "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"
+    )
+else:
+    st.warning("LangSmith tracking disabled - set LANGSMITH_API_KEY to enable.")
 
 openai_api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", None))
 os.environ["OPENAI_API_KEY"] = openai_api_key or ""
-if openai_api_key is None:
+if not openai_api_key:
     st.warning("Please set OPENAI_API_KEY in your environment!")
 
 arcade_api_key = st.secrets.get("ARCADE_API_KEY", os.getenv("ARCADE_API_KEY", None))
-if arcade_api_key is None:
-    st.warning("Please set ARCADE_API_KEY in your environment!")
 os.environ["ARCADE_API_KEY"] = arcade_api_key or ""
+if not arcade_api_key:
+    st.warning("Please set ARCADE_API_KEY in your environment!")
 
-openai_model = st.secrets.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o"))
-if openai_model is None:
-    st.warning("Please set OPENAI_MODEL in your environment!")
+openai_model = st.secrets.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4"))
 
-langsmith_client = Client(
-    api_key=langsmith_api_key,
-    api_url=st.secrets.get("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
-)
+# Initialize LangSmith client
+try:
+    if langsmith_api_key:
+        langsmith_client = Client(
+            api_key=langsmith_api_key,
+            api_url=st.secrets.get(
+                "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"
+            ),
+        )
+        st.success("LangSmith initialized successfully!")
+    else:
+        langsmith_client = None
+except Exception as e:
+    st.warning(f"LangSmith initialization failed: {str(e)}")
+    langsmith_client = None
 
 
 class TokenStreamHandler(BaseCallbackHandler):
@@ -177,7 +191,7 @@ def init_agent(callbacks=None) -> Any:
 
     # Set up the language model with callbacks for final response only
     model = ChatOpenAI(
-        model=st.secrets.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o")),
+        model=st.secrets.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4")),
         streaming=True,
         callbacks=callbacks,  # Pass callbacks directly to allow token streaming
     )
