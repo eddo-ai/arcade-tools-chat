@@ -35,8 +35,10 @@ langsmith_api_key = st.secrets.get(
     "LANGSMITH_API_KEY", os.getenv("LANGSMITH_API_KEY", None)
 )
 if langsmith_api_key:
+    # Set all required environment variables for LangSmith
+    os.environ["LANGCHAIN_API_KEY"] = langsmith_api_key
     os.environ["LANGSMITH_API_KEY"] = langsmith_api_key
-    os.environ["LANGSMITH_TRACING_V2"] = "true"
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
     os.environ["LANGSMITH_PROJECT"] = st.secrets.get("LANGSMITH_PROJECT", "default")
     os.environ["LANGSMITH_ENDPOINT"] = st.secrets.get(
         "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"
@@ -59,13 +61,21 @@ openai_model = st.secrets.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4")
 # Initialize LangSmith client
 try:
     if langsmith_api_key:
-        langsmith_client = Client(
-            api_key=langsmith_api_key,
-            api_url=st.secrets.get(
-                "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"
-            ),
-        )
+        langsmith_client = (
+            Client()
+        )  # It will use the environment variables we set above
+        # Add debug info
         st.success("LangSmith initialized successfully!")
+        st.write(
+            "Debug info:",
+            {
+                "LANGCHAIN_API_KEY": "***" if os.getenv("LANGCHAIN_API_KEY") else None,
+                "LANGSMITH_API_KEY": "***" if os.getenv("LANGSMITH_API_KEY") else None,
+                "LANGCHAIN_TRACING_V2": os.getenv("LANGCHAIN_TRACING_V2"),
+                "LANGSMITH_PROJECT": os.getenv("LANGSMITH_PROJECT"),
+                "LANGSMITH_ENDPOINT": os.getenv("LANGSMITH_ENDPOINT"),
+            },
+        )
     else:
         langsmith_client = None
 except Exception as e:
