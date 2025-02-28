@@ -10,14 +10,11 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
 from langchain.callbacks.base import BaseCallbackHandler
-from dotenv import load_dotenv
 from langchain_arcade import ArcadeToolManager
 from langgraph.errors import NodeInterrupt
 from langchain.callbacks.manager import CallbackManager, tracing_v2_enabled
 from langsmith import Client
 
-# Load environment variables (for local development)
-load_dotenv()
 
 # Set up Streamlit page configuration
 st.set_page_config(
@@ -30,42 +27,6 @@ st.set_page_config(
 # Check authentication
 if not hasattr(st.experimental_user, "email"):
     st.login()
-
-# Set up environment variables from Streamlit secrets
-langsmith_api_key = st.secrets.get(
-    "LANGSMITH_API_KEY", os.getenv("LANGSMITH_API_KEY", None)
-)
-
-# Initialize feedback client and set up tracing
-feedback_client = None
-if langsmith_api_key:
-    # Set API key for both tracing and feedback
-    os.environ["LANGSMITH_API_KEY"] = langsmith_api_key
-    # Enable tracing
-    os.environ["LANGSMITH_TRACING_V2"] = "true"
-    # Set project name
-    os.environ["LANGSMITH_PROJECT"] = "arcade-tools-chat"
-
-    try:
-        feedback_client = Client()
-        st.success("LangSmith enabled")
-    except Exception as e:
-        st.warning(f"LangSmith initialization failed: {str(e)}")
-else:
-    st.warning("LangSmith disabled - set LANGSMITH_API_KEY to enable")
-
-openai_api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", None))
-os.environ["OPENAI_API_KEY"] = openai_api_key or ""
-if not openai_api_key:
-    st.warning("Please set OPENAI_API_KEY in your environment!")
-
-arcade_api_key = st.secrets.get("ARCADE_API_KEY", os.getenv("ARCADE_API_KEY", None))
-os.environ["ARCADE_API_KEY"] = arcade_api_key or ""
-if not arcade_api_key:
-    st.warning("Please set ARCADE_API_KEY in your environment!")
-
-openai_model = st.secrets.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-4"))
-
 
 class TokenStreamHandler(BaseCallbackHandler):
     """Handler for streaming tokens to a Streamlit container."""
@@ -106,6 +67,11 @@ def handle_message_edit(idx: int, new_content: Optional[str]) -> None:
 
 def submit_feedback(run_id: Optional[str], score: int, comment: str = "") -> None:
     """Submit feedback to LangSmith."""
+    feedback_client = None
+    try:
+        feedback_client = Client()
+    except Exception as e:
+        st.error(f"Failed to initialize feedback client: {str(e)}")
     if run_id is not None and feedback_client is not None:
         try:
             feedback_client.create_feedback(
