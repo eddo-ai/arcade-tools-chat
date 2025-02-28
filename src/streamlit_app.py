@@ -37,6 +37,7 @@ langsmith_api_key = st.secrets.get(
 )
 if langsmith_api_key is None:
     st.warning("Please set LANGSMITH_API_KEY in your environment!")
+os.environ["LANGSMITH_API_KEY"] = langsmith_api_key or ""
 
 openai_api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", None))
 os.environ["OPENAI_API_KEY"] = openai_api_key or ""
