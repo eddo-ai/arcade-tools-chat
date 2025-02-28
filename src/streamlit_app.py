@@ -1,3 +1,4 @@
+import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import streamlit as st
@@ -22,7 +23,9 @@ if not hasattr(st.experimental_user, "email"):
     st.login()
 
 # Initialize LangSmith client
-langsmith_client = Client(api_key=st.secrets.get("LANGCHAIN_API_KEY", os.getenv("LANGCHAIN_API_KEY", None)))
+langsmith_client = Client(
+    api_key=st.secrets.get("LANGCHAIN_API_KEY", os.getenv("LANGCHAIN_API_KEY", None))
+)
 
 
 class TokenStreamHandler(BaseCallbackHandler):
@@ -275,7 +278,7 @@ if st.session_state.should_rerun:
                     "thread_id": st.session_state.current_thread_id,
                     "checkpoint_id": st.session_state.checkpoint_id,
                     "checkpoint_ns": "default",
-                    "user_id": os.environ.get("USER_ID", "default_user"),
+                    "user_id": st.experimental_user.get("email", None),
                 }
             }
 
@@ -380,7 +383,7 @@ if prompt := st.chat_input("Ask me to analyze any webpage!"):
                     "thread_id": st.session_state.current_thread_id,
                     "checkpoint_id": st.session_state.checkpoint_id,
                     "checkpoint_ns": "default",
-                    "user_id": os.environ.get("USER_ID", "default_user"),
+                    "user_id": st.experimental_user.get("email", None),
                 }
             }
 
